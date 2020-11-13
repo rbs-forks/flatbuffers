@@ -408,6 +408,31 @@ class PythonGenerator : public BaseGenerator {
     code += "\n";
   }
 
+  // Returns a non-struct vector as a bytes array. Much faster
+  // than iterating over the vector element by element.
+  void GetByteVector(const StructDef &struct_def,
+                                   const FieldDef &field,
+                                   std::string *code_ptr) {
+    auto &code = *code_ptr;
+    auto vectortype = field.value.type.VectorType();
+
+    // Currently, we only support accessing as bytes if
+    // the vector type is a scalar of type char/uchar
+    if (!(IsScalar(vectortype.base_type))) { return; }
+    if (vectortype.base_type != BASE_TYPE_CHAR && vectortype.base_type != BASE_TYPE_UCHAR) { return; }
+
+    GenReceiver(struct_def, code_ptr);
+    code += MakeCamel(NormalizedName(field)) + "AsBytes(self):";
+    code += OffsetPrefix(field);
+
+    code += Indent + Indent + Indent;
+    code += "return ";
+    code += "self._tab.GetByteVector(o)\n";
+
+    code += Indent + Indent + "return b''\n";
+    code += "\n";
+  }
+
   // Begin the creator function signature.
   void BeginBuilderArgs(const StructDef &struct_def, std::string *code_ptr) {
     auto &code = *code_ptr;
@@ -607,6 +632,7 @@ class PythonGenerator : public BaseGenerator {
           } else {
             GetMemberOfVectorOfNonStruct(struct_def, field, code_ptr);
             GetVectorOfNonStructAsNumpy(struct_def, field, code_ptr);
+            GetByteVector(struct_def, field, code_ptr);
           }
           break;
         }
@@ -1052,18 +1078,25 @@ class PythonGenerator : public BaseGenerator {
     auto field_instance_name = MakeLowerCamel(field);
     auto field_accessor_name = MakeUpperCamel(field);
     auto struct_instance_name = MakeLowerCamel(struct_def);
+    auto vectortype = field.value.type.VectorType();
 
     code += GenIndents(2) + "if not " + struct_instance_name + "." +
             field_accessor_name + "IsNone():";
 
     // String does not have the AsNumpy method.
-    if (!(IsScalar(field.value.type.VectorType().base_type))) {
+    if (!(IsScalar(vectortype.base_type))) {
       GenUnpackforScalarVectorHelper(struct_def, field, code_ptr, 3);
       return;
     }
 
     code += GenIndents(3) + "if np is None:";
-    GenUnpackforScalarVectorHelper(struct_def, field, code_ptr, 4);
+    if (vectortype.base_type == BASE_TYPE_UCHAR || vectortype.base_type == BASE_TYPE_CHAR) {
+      // Use AsBytes if vector is a byte vector to optimize the unpack speed.
+      code += GenIndents(4) + "self." + field_instance_name + " = " +
+              struct_instance_name + "." + field_accessor_name + "AsBytes()";
+    } else {
+      GenUnpackforScalarVectorHelper(struct_def, field, code_ptr, 4);
+    }
 
     // If numpy exists, use the AsNumpy method to optimize the unpack speed.
     code += GenIndents(3) + "else:";
@@ -1285,11 +1318,20 @@ class PythonGenerator : public BaseGenerator {
                    " = builder.CreateNumpyVector(self." + field_instance_name +
                    ")";
     code_prefix += GenIndents(3) + "else:";
-    GenPackForScalarVectorFieldHelper(struct_def, field, code_prefix_ptr, 4);
-    code_prefix += "(self." + field_instance_name + "[i])";
-    code_prefix += GenIndents(4) + field_instance_name +
-                   " = builder.EndVector(len(self." + field_instance_name +
-                   "))";
+    if (IsVector(field.value.type)) {
+      if ((vectortype.base_type == BASE_TYPE_UCHAR || vectortype.base_type == BASE_TYPE_CHAR)
+           && !IsEnum(vectortype)) {
+        code_prefix += GenIndents(4) + field_instance_name +
+                       " = builder.CreateByteVector(bytearray(self." + field_instance_name +
+                       "))";
+      } else {
+        GenPackForScalarVectorFieldHelper(struct_def, field, code_prefix_ptr, 4);
+        code_prefix += "(self." + field_instance_name + "[i])";
+        code_prefix += GenIndents(4) + field_instance_name +
+                       " = builder.EndVector(len(self." + field_instance_name +
+                       "))";
+      }
+    }
   }
 
   void GenPackForStructField(const StructDef &struct_def, const FieldDef &field,
