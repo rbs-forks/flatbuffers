@@ -101,6 +101,12 @@ class Table(object):
             return d
         return self.Get(validator_flags, self.Pos + off)
 
+    def GetByteVector(self, off):
+        """GetByteVector gets bytes from data stored inside the flatbuffer."""
+        offset = self.Vector(off)
+        length = self.VectorLen(off)
+        return bytes(self.Bytes[offset:offset + length])
+
     def GetVectorAsNumpy(self, flags, off):
         """
         GetVectorAsNumpy returns the vector that starts at `Vector(off)`
