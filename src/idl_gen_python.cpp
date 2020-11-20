@@ -408,15 +408,15 @@ class PythonGenerator : public BaseGenerator {
     code += "\n";
   }
 
-  // Returns a non-struct vector as a bytes array. Much faster
-  // than iterating over the vector element by element.
+  // Returns a non-struct vector as a bytes array. Faster than numpy and
+  // iterating over the vector element by element.
   void GetVectorOfNonStructAsBytes(const StructDef &struct_def,
                                    const FieldDef &field,
                                    std::string *code_ptr) {
     auto &code = *code_ptr;
     auto vectortype = field.value.type.VectorType();
 
-    if (!IsScalar(vectortype.base_type) ||
+    if (!IsScalar(vectortype.base_type) || IsEnum(vectortype) ||
         (vectortype.base_type != BASE_TYPE_CHAR &&
          vectortype.base_type != BASE_TYPE_UCHAR)) {
       return;
@@ -1085,20 +1085,20 @@ class PythonGenerator : public BaseGenerator {
       return;
     }
 
-    code += GenIndents(3) + "if np is None:";
     if (vectortype.base_type == BASE_TYPE_UCHAR ||
         vectortype.base_type == BASE_TYPE_CHAR) {
-      // Use AsBytes if vector is a byte vector to optimize the unpack speed.
-      code += GenIndents(4) + "self." + field_instance_name + " = " +
+      // Use AsBytes if vector is a byte vector to optimize the unpack speed, as
+      // this is faster than using numpy or unpacking byte-by-byte
+      code += GenIndents(3) + "self." + field_instance_name + " = " +
               struct_instance_name + "." + field_accessor_name + "AsBytes()";
     } else {
+      code += GenIndents(3) + "if np is None:";
       GenUnpackforScalarVectorHelper(struct_def, field, code_ptr, 4);
+      // If numpy exists, use the AsNumpy method to optimize the unpack speed.
+      code += GenIndents(3) + "else:";
+      code += GenIndents(4) + "self." + field_instance_name + " = " +
+              struct_instance_name + "." + field_accessor_name + "AsNumpy()";
     }
-
-    // If numpy exists, use the AsNumpy method to optimize the unpack speed.
-    code += GenIndents(3) + "else:";
-    code += GenIndents(4) + "self." + field_instance_name + " = " +
-            struct_instance_name + "." + field_accessor_name + "AsNumpy()";
   }
 
   void GenUnPackForScalar(const StructDef &struct_def, const FieldDef &field,
