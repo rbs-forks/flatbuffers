@@ -410,27 +410,23 @@ class PythonGenerator : public BaseGenerator {
 
   // Returns a non-struct vector as a bytes array. Much faster
   // than iterating over the vector element by element.
-  void GetByteVector(const StructDef &struct_def,
+  void GetVectorOfNonStructAsBytes(const StructDef &struct_def,
                                    const FieldDef &field,
                                    std::string *code_ptr) {
     auto &code = *code_ptr;
     auto vectortype = field.value.type.VectorType();
 
-    // Currently, we only support accessing as bytes if
-    // the vector type is a scalar of type char/uchar
-    if (!(IsScalar(vectortype.base_type))) { return; }
-    if (vectortype.base_type != BASE_TYPE_CHAR && vectortype.base_type != BASE_TYPE_UCHAR) { return; }
+    if (!IsScalar(vectortype.base_type) ||
+        (vectortype.base_type != BASE_TYPE_CHAR &&
+         vectortype.base_type != BASE_TYPE_UCHAR)) {
+      return;
+    }
 
     GenReceiver(struct_def, code_ptr);
     code += MakeCamel(NormalizedName(field)) + "AsBytes(self):";
     code += OffsetPrefix(field);
-
-    code += Indent + Indent + Indent;
-    code += "return ";
-    code += "self._tab.GetByteVector(o)\n";
-
-    code += Indent + Indent + "return b''\n";
-    code += "\n";
+    code += Indent + Indent + Indent + "return self._tab.GetByteVector(o)\n";
+    code += Indent + Indent + "return b''\n\n";
   }
 
   // Begin the creator function signature.
@@ -632,7 +628,7 @@ class PythonGenerator : public BaseGenerator {
           } else {
             GetMemberOfVectorOfNonStruct(struct_def, field, code_ptr);
             GetVectorOfNonStructAsNumpy(struct_def, field, code_ptr);
-            GetByteVector(struct_def, field, code_ptr);
+            GetVectorOfNonStructAsBytes(struct_def, field, code_ptr);
           }
           break;
         }
@@ -1090,7 +1086,8 @@ class PythonGenerator : public BaseGenerator {
     }
 
     code += GenIndents(3) + "if np is None:";
-    if (vectortype.base_type == BASE_TYPE_UCHAR || vectortype.base_type == BASE_TYPE_CHAR) {
+    if (vectortype.base_type == BASE_TYPE_UCHAR ||
+        vectortype.base_type == BASE_TYPE_CHAR) {
       // Use AsBytes if vector is a byte vector to optimize the unpack speed.
       code += GenIndents(4) + "self." + field_instance_name + " = " +
               struct_instance_name + "." + field_accessor_name + "AsBytes()";
@@ -1318,19 +1315,18 @@ class PythonGenerator : public BaseGenerator {
                    " = builder.CreateNumpyVector(self." + field_instance_name +
                    ")";
     code_prefix += GenIndents(3) + "else:";
-    if (IsVector(field.value.type)) {
-      if ((vectortype.base_type == BASE_TYPE_UCHAR || vectortype.base_type == BASE_TYPE_CHAR)
-           && !IsEnum(vectortype)) {
-        code_prefix += GenIndents(4) + field_instance_name +
-                       " = builder.CreateByteVector(bytearray(self." + field_instance_name +
-                       "))";
-      } else {
-        GenPackForScalarVectorFieldHelper(struct_def, field, code_prefix_ptr, 4);
-        code_prefix += "(self." + field_instance_name + "[i])";
-        code_prefix += GenIndents(4) + field_instance_name +
-                       " = builder.EndVector(len(self." + field_instance_name +
-                       "))";
-      }
+    if ((vectortype.base_type == BASE_TYPE_UCHAR ||
+         vectortype.base_type == BASE_TYPE_CHAR) &&
+        !IsEnum(vectortype)) {
+      code_prefix += GenIndents(4) + field_instance_name +
+                     " = builder.CreateByteVector(bytearray(self." +
+                     field_instance_name + "))";
+    } else {
+      GenPackForScalarVectorFieldHelper(struct_def, field, code_prefix_ptr, 4);
+      code_prefix += "(self." + field_instance_name + "[i])";
+      code_prefix += GenIndents(4) + field_instance_name +
+                     " = builder.EndVector(len(self." + field_instance_name +
+                     "))";
     }
   }
 

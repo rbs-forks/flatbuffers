@@ -102,10 +102,13 @@ class Table(object):
         return self.Get(validator_flags, self.Pos + off)
 
     def GetByteVector(self, off):
-        """GetByteVector gets bytes from data stored inside the flatbuffer."""
+        """
+        GetByteVector returns a bytearray representing a byte or ubyte vector
+        at the given offset.
+        """
         offset = self.Vector(off)
         length = self.VectorLen(off)
-        return bytes(self.Bytes[offset:offset + length])
+        return bytearray(self.Bytes[offset:offset + length])
 
     def GetVectorAsNumpy(self, flags, off):
         """
