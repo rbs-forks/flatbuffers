@@ -73,6 +73,13 @@ class Monster(object):
         return 0
 
     # Monster
+    def InventoryAsBytes(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.GetByteVector(o)
+        return b''
+
+    # Monster
     def InventoryLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
@@ -204,6 +211,13 @@ class Monster(object):
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
         return 0
+
+    # Monster
+    def TestnestedflatbufferAsBytes(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        if o != 0:
+            return self._tab.GetByteVector(o)
+        return b''
 
     # Monster
     def TestnestedflatbufferLength(self):
@@ -397,6 +411,13 @@ class Monster(object):
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
         return 0
+
+    # Monster
+    def FlexAsBytes(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(64))
+        if o != 0:
+            return self._tab.GetByteVector(o)
+        return b''
 
     # Monster
     def FlexLength(self):
@@ -735,6 +756,13 @@ class Monster(object):
         return 0
 
     # Monster
+    def TestrequirednestedflatbufferAsBytes(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(102))
+        if o != 0:
+            return self._tab.GetByteVector(o)
+        return b''
+
+    # Monster
     def TestrequirednestedflatbufferLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(102))
         if o != 0:
@@ -909,12 +937,7 @@ class MonsterT(object):
         self.hp = monster.Hp()
         self.name = monster.Name()
         if not monster.InventoryIsNone():
-            if np is None:
-                self.inventory = []
-                for i in range(monster.InventoryLength()):
-                    self.inventory.append(monster.Inventory(i))
-            else:
-                self.inventory = monster.InventoryAsNumpy()
+            self.inventory = monster.InventoryAsBytes()
         self.color = monster.Color()
         self.testType = monster.TestType()
         self.test = MyGame.Example.Any.AnyCreator(self.testType, monster.Test())
@@ -941,12 +964,7 @@ class MonsterT(object):
         if monster.Enemy() is not None:
             self.enemy = MyGame.Example.Monster.MonsterT.InitFromObj(monster.Enemy())
         if not monster.TestnestedflatbufferIsNone():
-            if np is None:
-                self.testnestedflatbuffer = []
-                for i in range(monster.TestnestedflatbufferLength()):
-                    self.testnestedflatbuffer.append(monster.Testnestedflatbuffer(i))
-            else:
-                self.testnestedflatbuffer = monster.TestnestedflatbufferAsNumpy()
+            self.testnestedflatbuffer = monster.TestnestedflatbufferAsBytes()
         if monster.Testempty() is not None:
             self.testempty = MyGame.Example.Stat.StatT.InitFromObj(monster.Testempty())
         self.testbool = monster.Testbool()
@@ -981,12 +999,7 @@ class MonsterT(object):
                     ability_ = MyGame.Example.Ability.AbilityT.InitFromObj(monster.Testarrayofsortedstruct(i))
                     self.testarrayofsortedstruct.append(ability_)
         if not monster.FlexIsNone():
-            if np is None:
-                self.flex = []
-                for i in range(monster.FlexLength()):
-                    self.flex.append(monster.Flex(i))
-            else:
-                self.flex = monster.FlexAsNumpy()
+            self.flex = monster.FlexAsBytes()
         if not monster.Test5IsNone():
             self.test5 = []
             for i in range(monster.Test5Length()):
@@ -1056,20 +1069,10 @@ class MonsterT(object):
         self.anyAmbiguousType = monster.AnyAmbiguousType()
         self.anyAmbiguous = MyGame.Example.AnyAmbiguousAliases.AnyAmbiguousAliasesCreator(self.anyAmbiguousType, monster.AnyAmbiguous())
         if not monster.VectorOfEnumsIsNone():
-            if np is None:
-                self.vectorOfEnums = []
-                for i in range(monster.VectorOfEnumsLength()):
-                    self.vectorOfEnums.append(monster.VectorOfEnums(i))
-            else:
-                self.vectorOfEnums = monster.VectorOfEnumsAsNumpy()
+            self.vectorOfEnums = monster.VectorOfEnumsAsBytes()
         self.signedEnum = monster.SignedEnum()
         if not monster.TestrequirednestedflatbufferIsNone():
-            if np is None:
-                self.testrequirednestedflatbuffer = []
-                for i in range(monster.TestrequirednestedflatbufferLength()):
-                    self.testrequirednestedflatbuffer.append(monster.Testrequirednestedflatbuffer(i))
-            else:
-                self.testrequirednestedflatbuffer = monster.TestrequirednestedflatbufferAsNumpy()
+            self.testrequirednestedflatbuffer = monster.TestrequirednestedflatbufferAsBytes()
 
     # MonsterT
     def Pack(self, builder):
@@ -1079,10 +1082,7 @@ class MonsterT(object):
             if np is not None and type(self.inventory) is np.ndarray:
                 inventory = builder.CreateNumpyVector(self.inventory)
             else:
-                MonsterStartInventoryVector(builder, len(self.inventory))
-                for i in reversed(range(len(self.inventory))):
-                    builder.PrependUint8(self.inventory[i])
-                inventory = builder.EndVector(len(self.inventory))
+                inventory = builder.CreateByteVector(bytearray(self.inventory))
         if self.test is not None:
             test = self.test.Pack(builder)
         if self.test4 is not None:
@@ -1112,10 +1112,7 @@ class MonsterT(object):
             if np is not None and type(self.testnestedflatbuffer) is np.ndarray:
                 testnestedflatbuffer = builder.CreateNumpyVector(self.testnestedflatbuffer)
             else:
-                MonsterStartTestnestedflatbufferVector(builder, len(self.testnestedflatbuffer))
-                for i in reversed(range(len(self.testnestedflatbuffer))):
-                    builder.PrependUint8(self.testnestedflatbuffer[i])
-                testnestedflatbuffer = builder.EndVector(len(self.testnestedflatbuffer))
+                testnestedflatbuffer = builder.CreateByteVector(bytearray(self.testnestedflatbuffer))
         if self.testempty is not None:
             testempty = self.testempty.Pack(builder)
         if self.testarrayofbools is not None:
@@ -1143,10 +1140,7 @@ class MonsterT(object):
             if np is not None and type(self.flex) is np.ndarray:
                 flex = builder.CreateNumpyVector(self.flex)
             else:
-                MonsterStartFlexVector(builder, len(self.flex))
-                for i in reversed(range(len(self.flex))):
-                    builder.PrependUint8(self.flex[i])
-                flex = builder.EndVector(len(self.flex))
+                flex = builder.CreateByteVector(bytearray(self.flex))
         if self.test5 is not None:
             MonsterStartTest5Vector(builder, len(self.test5))
             for i in reversed(range(len(self.test5))):
@@ -1226,10 +1220,7 @@ class MonsterT(object):
             if np is not None and type(self.testrequirednestedflatbuffer) is np.ndarray:
                 testrequirednestedflatbuffer = builder.CreateNumpyVector(self.testrequirednestedflatbuffer)
             else:
-                MonsterStartTestrequirednestedflatbufferVector(builder, len(self.testrequirednestedflatbuffer))
-                for i in reversed(range(len(self.testrequirednestedflatbuffer))):
-                    builder.PrependUint8(self.testrequirednestedflatbuffer[i])
-                testrequirednestedflatbuffer = builder.EndVector(len(self.testrequirednestedflatbuffer))
+                testrequirednestedflatbuffer = builder.CreateByteVector(bytearray(self.testrequirednestedflatbuffer))
         MonsterStart(builder)
         if self.pos is not None:
             pos = self.pos.Pack(builder)

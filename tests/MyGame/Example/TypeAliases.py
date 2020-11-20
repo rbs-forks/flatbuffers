@@ -110,6 +110,13 @@ class TypeAliases(object):
         return 0
 
     # TypeAliases
+    def V8AsBytes(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.GetByteVector(o)
+        return b''
+
+    # TypeAliases
     def V8Length(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
         if o != 0:
@@ -214,12 +221,7 @@ class TypeAliasesT(object):
         self.f32 = typeAliases.F32()
         self.f64 = typeAliases.F64()
         if not typeAliases.V8IsNone():
-            if np is None:
-                self.v8 = []
-                for i in range(typeAliases.V8Length()):
-                    self.v8.append(typeAliases.V8(i))
-            else:
-                self.v8 = typeAliases.V8AsNumpy()
+                self.v8 = typeAliases.V8AsBytes()
         if not typeAliases.Vf64IsNone():
             if np is None:
                 self.vf64 = []
@@ -234,10 +236,7 @@ class TypeAliasesT(object):
             if np is not None and type(self.v8) is np.ndarray:
                 v8 = builder.CreateNumpyVector(self.v8)
             else:
-                TypeAliasesStartV8Vector(builder, len(self.v8))
-                for i in reversed(range(len(self.v8))):
-                    builder.PrependByte(self.v8[i])
-                v8 = builder.EndVector(len(self.v8))
+                v8 = builder.CreateByteVector(bytearray(self.v8))
         if self.vf64 is not None:
             if np is not None and type(self.vf64) is np.ndarray:
                 vf64 = builder.CreateNumpyVector(self.vf64)
